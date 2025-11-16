@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
-export default function Photos() {
+export default function Videos() {
   const [videos, setVideos] = useState([]);
   const [preview, setPreview] = useState(null); // 当前播放视频的 url
 

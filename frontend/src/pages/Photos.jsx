@@ -39,11 +39,11 @@ export default function Photos() {
       </div>
 
       {/* 点击图片放大 */}
-      {/* <Dialog open={!!preview} onOpenChange={() => setPreview(null)}>
+      <Dialog open={!!preview} onOpenChange={() => setPreview(null)}>
         <DialogContent className="max-w-5xl bg-neutral-950 border-neutral-800">
           <img src={preview} className="w-full h-auto rounded" />
         </DialogContent>
-      </Dialog> */}
+      </Dialog>
     </div>
   );
 }
