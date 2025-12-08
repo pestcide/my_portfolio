@@ -20,6 +20,9 @@ app.add_middleware(
 )
 
 # 挂载静态目录
+if not os.path.exists("media"):
+    os.makedirs("media/photos", exist_ok=True)
+    os.makedirs("media/videos", exist_ok=True)
 app.mount("/media", StaticFiles(directory="media"), name="media")
 
 # 动态返回压缩图片
