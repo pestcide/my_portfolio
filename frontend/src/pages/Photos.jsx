@@ -1,59 +1,103 @@
-import { useEffect, useState } from "react";
-import axios from "axios";
+import { useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
+// ✅ Vite 官方推荐写法
+const images = import.meta.glob(
+  "/src/assets/photos/*.{jpg,jpeg,png,webp,JPG,PNG,WEBP}",
+  {
+    eager: true,
+    query: "?url",
+    import: "default",
+  }
+);
+
+function shuffle(array) {
+  let arr = array.slice();
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+const photos = shuffle(Object.values(images));
+
 export default function Photos() {
-  const [photos, setPhotos] = useState([]);
   const [preview, setPreview] = useState(null);
 
-  useEffect(() => {
-    axios
-      .get("http://localhost:8000/media")
-      .then((res) => {
-        setPhotos(res.data.media.filter((item) => item.type === "photo"));
-      })
-      .catch((err) => console.error(err));
-  }, []);
-
   return (
-    <div className="w-full min-h-screen bg-neutral-900 p-6 pt-24">
+    <div className="relative w-full min-h-screen bg-neutral-950 p-6 pt-6 overflow-hidden">
+      {/* 背景环境光（和 Home 页一致） */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-purple-500/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-blue-500/10 rounded-full blur-3xl" />
+      </div>
 
-      {/* Masonry Layout */}
-      <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 space-y-4">
-        {photos.map((item, idx) => (
+      {/* Masonry */}
+      <div className="relative z-10 columns-2 md:columns-4 lg:columns-6 gap-4 space-y-4">
+        {photos.map((url, idx) => (
           <div
             key={idx}
-            className="break-inside-avoid cursor-pointer"
-            onClick={() => setPreview(`http://localhost:8000${item.url}`)}
+            className="
+              break-inside-avoid
+              cursor-pointer
+              transition
+              hover:scale-[1.01]
+            "
+            onClick={() => setPreview(url)}
           >
             <img
-              src={`http://localhost:8000${item.url}`}
-              alt={item.title}
+              src={url}
               loading="lazy"
-              onLoad={(e)=> e.target.classList.remove("opacity-0")}
+              alt=""
+              onLoad={(e) =>
+                e.currentTarget.classList.remove("opacity-0")
+              }
               className="
-                w-full rounded-lg object-cover mb-2 hover:opacity-90 transition
-                bg-neutral-800 opacity-0 duration-700
+                w-full rounded-xl object-cover mb-2
+                bg-neutral-800
+                opacity-0 duration-700 transition
+                hover:opacity-90
               "
             />
-
-            {/* <p className="text-sm text-neutral-300 pl-2">
-              • {item.title || "未命名图片"}
-            </p> */}
           </div>
         ))}
       </div>
 
-      {/* 点击图片放大 */}
+      {/* Preview */}
       <Dialog open={!!preview} onOpenChange={() => setPreview(null)}>
         <DialogContent
-          className="max-w-5xl max-h-[90vh] bg-neutral-950 border-neutral-800"
+          className="
+            z-50
+            w-[95vw]
+            h-[95vh]
+            max-w-none
+            max-h-none
+
+            bg-white/5
+            backdrop-blur-2xl
+
+            border border-white/15
+            rounded-3xl
+            p-4
+
+            flex items-center justify-center
+
+            shadow-[0_30px_80px_rgba(0,0,0,0.7)]
+          "
         >
-          <img
-            src={preview}
-            className="w-auto h-auto max-h-[80vh] rounded mx-auto"
-            alt="Preview"
-          />
+          {preview && (
+            <img
+              src={preview}
+              alt=""
+              className="
+                max-w-full
+                max-h-full
+                object-contain
+                rounded-xl
+              "
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>
