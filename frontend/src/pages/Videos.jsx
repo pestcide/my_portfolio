@@ -28,7 +28,12 @@ export default function Videos() {
             <img
               src={`http://localhost:8000/thumbnail?video=${item.title}`}
               alt={item.title}
-              className="w-full rounded-lg object-cover mb-2 hover:opacity-90 transition"
+              loading="lazy"
+              onLoad={(e)=> e.target.classList.remove("opacity-0")}
+              className="
+                w-full rounded-lg object-cover mb-2 hover:opacity-90 transition
+                bg-neutral-800 opacity-0 duration-700
+              "
             />
             <p className="text-sm text-neutral-300 pl-2">
               {item.title || "未命名视频"}

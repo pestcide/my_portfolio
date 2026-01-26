@@ -8,6 +8,7 @@ from io import BytesIO
 import os
 from glob import glob
 import numpy as np
+import hashlib
 
 app = FastAPI()
 
@@ -51,7 +52,13 @@ def get_compressed_photo(filename: str, max_width: int = 1200):
 
 @app.get("/thumbnail")
 def get_thumbnail(video: str = Query(...)):
-    print(video)
+    hash_str = hashlib.md5(video.encode()).hexdigest()
+    cache_path = os.path.join("media", "thumbnails")
+    if not os.path.exists(cache_path):
+        os.makedirs(cache_path, exist_ok=True)
+    framepath = os.path.join(cache_path, f"{hash_str}.jpg")
+    if os.path.exists(framepath):
+        return StreamingResponse(open(framepath, "rb"), media_type="image/jpeg")
     video_path = os.path.join("media", "videos", video)
     if not os.path.exists(video_path):
         print("Video not found")
@@ -72,6 +79,8 @@ def get_thumbnail(video: str = Query(...)):
 
     # 转为 PIL Image
     img = Image.fromarray(frame)
+    with open(framepath, "wb") as f:
+        img.save(f, format="JPEG", optimize=True, quality=85)
     buffer = BytesIO()
     img.save(buffer, format="JPEG")
     buffer.seek(0)

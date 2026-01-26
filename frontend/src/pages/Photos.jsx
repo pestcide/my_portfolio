@@ -29,8 +29,14 @@ export default function Photos() {
             <img
               src={`http://localhost:8000${item.url}`}
               alt={item.title}
-              className="w-full rounded-lg object-cover mb-2 hover:opacity-90 transition"
+              loading="lazy"
+              onLoad={(e)=> e.target.classList.remove("opacity-0")}
+              className="
+                w-full rounded-lg object-cover mb-2 hover:opacity-90 transition
+                bg-neutral-800 opacity-0 duration-700
+              "
             />
+
             {/* <p className="text-sm text-neutral-300 pl-2">
               • {item.title || "未命名图片"}
             </p> */}
@@ -40,8 +46,14 @@ export default function Photos() {
 
       {/* 点击图片放大 */}
       <Dialog open={!!preview} onOpenChange={() => setPreview(null)}>
-        <DialogContent className="max-w-5xl bg-neutral-950 border-neutral-800">
-          <img src={preview} className="w-full h-auto rounded" />
+        <DialogContent
+          className="max-w-5xl max-h-[90vh] bg-neutral-950 border-neutral-800"
+        >
+          <img
+            src={preview}
+            className="w-auto h-auto max-h-[80vh] rounded mx-auto"
+            alt="Preview"
+          />
         </DialogContent>
       </Dialog>
     </div>
