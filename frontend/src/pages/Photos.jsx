@@ -1,9 +1,41 @@
 import { useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
-// ✅ Vite 官方推荐写法
-const images = import.meta.glob(
-  "/src/assets/photos/*.{jpg,jpeg,png,webp,JPG,PNG,WEBP}",
+function createSeededRandom(seed) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+
+  return function () {
+    h += h << 13;
+    h ^= h >>> 7;
+    h += h << 3;
+    h ^= h >>> 17;
+    h += h << 5;
+    return (h >>> 0) / 4294967296;
+  };
+}
+
+function shuffleStable(array, seed) {
+  const rng = createSeededRandom(seed);
+  const arr = [...array];
+
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+
+  return arr;
+}
+
+
+/**
+ * 缩略图
+ */
+const thumbs = import.meta.glob(
+  "/src/assets/photos/**/800.webp",
   {
     eager: true,
     query: "?url",
@@ -11,54 +43,55 @@ const images = import.meta.glob(
   }
 );
 
-function shuffle(array) {
-  let arr = array.slice();
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+/**
+ * 大图
+ */
+const full = import.meta.glob(
+  "/src/assets/photos/**/2400.webp",
+  {
+    eager: true,
+    query: "?url",
+    import: "default",
   }
-  return arr;
-}
+);
 
-const photos = shuffle(Object.values(images));
+/**
+ * 建立映射
+ */
+// 用“当天日期”作为 seed
+const seed = new Date().toISOString().slice(0, 10);
+
+const photos = shuffleStable(
+  Object.keys(thumbs).map((key) => {
+    const fullKey = key.replace(/800\.webp$/, "2400.webp");
+
+    return {
+      thumb: thumbs[key],
+      full: full[fullKey],
+    };
+  }),
+  seed
+);
+
 
 export default function Photos() {
   const [preview, setPreview] = useState(null);
 
   return (
-    <div className="relative w-full min-h-screen bg-neutral-950 p-6 pt-6 overflow-hidden">
-      {/* 背景环境光（和 Home 页一致） */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-purple-500/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-blue-500/10 rounded-full blur-3xl" />
-      </div>
-
+    <div className="relative w-full min-h-screen bg-neutral-950 p-6 overflow-hidden">
       {/* Masonry */}
-      <div className="relative z-10 columns-2 md:columns-4 lg:columns-6 gap-4 space-y-4">
-        {photos.map((url, idx) => (
+      <div className="columns-2 md:columns-4 lg:columns-6 gap-4 space-y-4">
+        {photos.map((photo, idx) => (
           <div
             key={idx}
-            className="
-              break-inside-avoid
-              cursor-pointer
-              transition
-              hover:scale-[1.01]
-            "
-            onClick={() => setPreview(url)}
+            className="break-inside-avoid cursor-pointer"
+            onClick={() => setPreview(photo)}
           >
             <img
-              src={url}
+              src={photo.thumb}
               loading="lazy"
-              alt=""
-              onLoad={(e) =>
-                e.currentTarget.classList.remove("opacity-0")
-              }
-              className="
-                w-full rounded-xl object-cover mb-2
-                bg-neutral-800
-                opacity-0 duration-700 transition
-                hover:opacity-90
-              "
+              decoding="async"
+              className="w-full rounded-xl mb-4"
             />
           </div>
         ))}
@@ -88,14 +121,8 @@ export default function Photos() {
         >
           {preview && (
             <img
-              src={preview}
-              alt=""
-              className="
-                max-w-full
-                max-h-full
-                object-contain
-                rounded-xl
-              "
+              src={preview.full}
+              className="max-w-full max-h-full object-contain"
             />
           )}
         </DialogContent>

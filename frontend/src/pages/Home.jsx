@@ -1,3 +1,6 @@
+import myphoto from "../assets/home/myphoto.webp";
+import beian from "../assets/备案图标.png";
+
 export default function Home() {
   return (
     <div className="relative w-screen min-h-screen bg-neutral-950 overflow-hidden">
@@ -28,7 +31,7 @@ export default function Home() {
             <div className="flex flex-col gap-6">
               <div className="grid grid-cols-1 gap-4">
                 <img
-                  src="/src/assets/home/DSC_8436.JPG"
+                  src={myphoto}
                   alt=""
                   className="rounded-xl object-cover "
                 />
@@ -113,6 +116,15 @@ export default function Home() {
                   <span className="text-neutral-300">
                     © 2026 Golem. All photographs are copyrighted.
                   </span>
+                </div>
+                <div className="flex gap-2 text-sm items-center mt-2">
+                  <a href="https://beian.mps.gov.cn/#/query/webSearch?code=32011302323061" rel="noreferrer" target="_blank" className="text-neutral-300 hover:text-white transition">
+                    <img src={beian} alt="备案图标" className="w-4 h-4 inline-block" />
+                    <span className="ml-1">苏公网安备32011302323061号</span>
+                  </a>
+                  <a href="https://beian.miit.gov.cn/" rel="noreferrer" target="_blank" className="text-neutral-300 hover:text-white transition">
+                    <span className="ml-1">苏ICP备2026006625号-1</span>
+                  </a>
                 </div>
               </div>
             </div>
