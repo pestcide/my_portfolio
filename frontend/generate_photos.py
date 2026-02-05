@@ -32,6 +32,20 @@ def resize_keep_aspect(img: Image.Image, target: int) -> Image.Image:
     return img.resize(new_size, Image.LANCZOS)
 
 
+def is_image_processed(img_path: Path) -> bool:
+    """
+    检查图片是否已经被处理过
+    如果输出目录存在且包含所有目标尺寸，则认为已处理
+    """
+    out_dir = img_path.with_suffix("")
+    
+    if not out_dir.exists():
+        return False
+    
+    # 检查所有目标尺寸的文件是否都存在
+    return all((out_dir / f"{size}.webp").exists() for size in SIZES.keys())
+
+
 def process_image(img_path: Path):
     print(f"Processing: {img_path}")
 
@@ -59,11 +73,19 @@ def process_image(img_path: Path):
 
 
 def main():
+    processed_count = 0
+    skipped_count = 0
+    
     for path in SOURCE_DIR.glob("*"):
         if path.is_file() and path.suffix in EXTS:
-            process_image(path)
+            if is_image_processed(path):
+                print(f"Skipping (already processed): {path}")
+                skipped_count += 1
+            else:
+                process_image(path)
+                processed_count += 1
 
-    print("\n✅ All images processed.")
+    print(f"\n✅ Complete! Processed: {processed_count}, Skipped: {skipped_count}")
 
 
 if __name__ == "__main__":
