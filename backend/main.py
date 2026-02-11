@@ -6,12 +6,19 @@ from auth import verify_token, create_token, USERNAME, PASSWORD
 from fastapi import HTTPException, Depends
 import shutil
 from fastapi import UploadFile, File
-from PIL import Image
+from PIL import Image, ImageOps
 
 
 app = FastAPI()
 
-PHOTO_DIR = "../Media"   # 按实际路径改
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PHOTO_DIR = os.path.join(BASE_DIR, "..", "Media")
+
+# 目标尺寸：最长边
+SIZES = {
+    800: 75,     # Masonry / 列表
+    2400: 85,    # 预览 / 放大
+}
 
 # 挂载静态目录
 app.mount("/Media", StaticFiles(directory=PHOTO_DIR), name="Media")
@@ -69,6 +76,23 @@ def upload_image(
 ):
     def is_image(file: UploadFile):
         return file.content_type.startswith("image/")
+    def resize_keep_aspect(img: Image.Image, target: int) -> Image.Image:
+        """
+        保持横竖比例：
+        - 以最长边为 target
+        - 不裁剪
+        - 不放大
+        """
+        w, h = img.size
+        long_edge = max(w, h)
+
+        if long_edge <= target:
+            return img.copy()
+
+        scale = target / long_edge
+        new_size = (int(w * scale), int(h * scale))
+
+        return img.resize(new_size, Image.LANCZOS)
     # ① 校验是否为图片
     if not is_image(file):
         raise HTTPException(400, "只能上传图片文件")
@@ -91,22 +115,19 @@ def upload_image(
         shutil.copyfileobj(file.file, buffer)
 
     try:
-        # ⑤ 打开图片
-        img = Image.open(temp_path).convert("RGB")
+        with Image.open(temp_path) as img:
+            img = ImageOps.exif_transpose(img)
+            img = img.convert("RGB")
+            for target, quality in SIZES.items():
+                resized = resize_keep_aspect(img, target)
 
-        # ===== 生成 2400 =====
-        img_2400 = img.copy()
-        img_2400.thumbnail((2400, 2400))
-
-        full_path = os.path.join(folder_path, "2400.webp")
-        img_2400.save(full_path, "WEBP", quality=95)
-
-        # ===== 生成 800 =====
-        img_800 = img.copy()
-        img_800.thumbnail((800, 800))
-
-        thumb_path = os.path.join(folder_path, "800.webp")
-        img_800.save(thumb_path, "WEBP", quality=90)
+                out_path = os.path.join(folder_path, f"{target}.webp")
+                resized.save(
+                    out_path,
+                    "WEBP",
+                    quality=quality,
+                    method=6
+                )
 
     except Exception:
         shutil.rmtree(folder_path)
