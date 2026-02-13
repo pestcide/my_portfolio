@@ -13,6 +13,7 @@ app = FastAPI()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PHOTO_DIR = os.path.join(BASE_DIR, "..", "Media")
+BLOG_DIR = os.path.join(BASE_DIR, "..", "Blogs")
 
 # 目标尺寸：最长边
 SIZES = {
@@ -22,6 +23,7 @@ SIZES = {
 
 # 挂载静态目录
 app.mount("/Media", StaticFiles(directory=PHOTO_DIR), name="Media")
+app.mount("/Blogs", StaticFiles(directory=BLOG_DIR), name="Blogs")
 
 
 @app.get("/api/Media")
@@ -164,3 +166,27 @@ def get_me(user: str = Depends(verify_token)):
     return {
         "username": user
     }
+    
+@app.get("/api/Blogs")
+def list_blogs():
+    blogs = []
+
+    for folder in os.listdir(BLOG_DIR):
+        folder_path = os.path.join(BLOG_DIR, folder)
+
+        if not os.path.isdir(folder_path):
+            continue
+
+        md_files = [
+            f for f in os.listdir(folder_path)
+            if f.endswith(".md")
+        ]
+
+        for md in md_files:
+            blogs.append({
+                "title": folder,
+                "folder_url": f"/Blogs/{folder}",
+                "md_url": f"/Blogs/{folder}/{md}"
+            })
+
+    return blogs

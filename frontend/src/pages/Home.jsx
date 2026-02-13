@@ -59,7 +59,26 @@ export default function Home() {
                   transition
                 "
               >
-                查看作品 →
+                Golem&Suu 的相册 →
+              </a>
+              <a
+                href="/blogs"
+                className="
+                  inline-flex
+                  items-center
+                  justify-center
+                  px-6 py-3
+                  rounded-full
+                  bg-white/90
+                  text-neutral-900
+                  font-semibold
+                  shadow-lg
+                  hover:bg-white
+                  hover:scale-105
+                  transition
+                "
+              >
+                Blogs →
               </a>
             </div>
 
