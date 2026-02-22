@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -22,14 +22,12 @@ import "./markdown.css";
 
 export default function BlogPost() {
   const [params] = useSearchParams();
+  const navigate = useNavigate();
   const mdUrl = params.get("md");
 
   const [content, setContent] = useState("");
   const [toc, setToc] = useState([]);
 
-  /* ===============================
-     获取 Markdown
-  =============================== */
   useEffect(() => {
     if (!mdUrl) return;
 
@@ -41,9 +39,6 @@ export default function BlogPost() {
       });
   }, [mdUrl]);
 
-  /* ===============================
-     生成 TOC（与 rehype-slug 同规则）
-  =============================== */
   const generateToc = (markdown) => {
     const tree = unified()
       .use(remarkParse)
@@ -57,45 +52,71 @@ export default function BlogPost() {
     const visit = (node) => {
       if (node.type === "heading") {
         const text = toString(node);
-        const level = node.depth;
-
-        // 与 rehype-slug 完全一致
         const id = slugger.slug(text);
 
         headings.push({
-          level,
+          level: node.depth,
           text,
           id,
         });
       }
-
-      if (node.children) {
-        node.children.forEach(visit);
-      }
+      node.children?.forEach(visit);
     };
 
     visit(tree);
     setToc(headings);
   };
 
-  /* ===============================
-     图片路径补全
-  =============================== */
   const basePath = mdUrl
     ? mdUrl.substring(0, mdUrl.lastIndexOf("/") + 1)
     : "";
 
-  /* ===============================
-     页面
-  =============================== */
   return (
-    <div className="bg-neutral-950 text-white min-h-screen">
-      <div className="max-w-[1600px] mx-auto flex">
+    <div className="relative min-h-screen bg-neutral-950 text-white">
 
-        {/* 左侧留白 */}
+      {/* ================= 全局光晕 ================= */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-purple-500/20 rounded-full blur-[120px]" />
+        <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-blue-500/20 rounded-full blur-[120px]" />
+      </div>
+
+      {/* ================= 返回按钮（页面级） ================= */}
+      <button
+        onClick={() => navigate("/")}
+        className="
+          fixed top-6 left-6 z-20
+          w-11 h-11
+          flex items-center justify-center
+          rounded-full
+          bg-white/5
+          border border-white/10
+          backdrop-blur-md
+          transition-all duration-300
+          hover:bg-white/10
+          hover:border-purple-400/40
+          hover:-translate-y-0.5
+          hover:shadow-[0_0_25px_rgba(139,92,246,0.4)]
+          group
+        "
+      >
+        <span
+          className="
+            text-lg
+            text-neutral-300
+            transition-transform duration-300
+            
+          "
+        >
+          ←
+        </span>
+      </button>
+
+      {/* ================= 页面内容 ================= */}
+      <div className="relative z-10 max-w-[1600px] mx-auto flex">
+
         <div className="hidden 2xl:block w-64" />
 
-        {/* ================= 正文 ================= */}
+        {/* 正文 */}
         <main className="flex-1 px-6 lg:px-10 py-10">
           <article
             className="
@@ -117,29 +138,23 @@ export default function BlogPost() {
               rehypePlugins={[
                 rehypeHighlight,
                 rehypeKatex,
-                rehypeSlug, // 自动标题 id
+                rehypeSlug,
               ]}
               components={{
-                /* 图片路径补全 */
                 img: ({ src, ...props }) => {
                   let newSrc = src;
-
                   if (
                     !src.startsWith("http") &&
                     !src.startsWith("/")
                   ) {
                     newSrc = basePath + src;
                   }
-
                   return <img src={newSrc} {...props} />;
                 },
-
-                /* 修复 README 锚点大小写 */
                 a: ({ href, ...props }) => {
                   if (href?.startsWith("#")) {
                     href = href.toLowerCase();
                   }
-
                   return (
                     <a
                       href={href}
@@ -155,38 +170,21 @@ export default function BlogPost() {
           </article>
         </main>
 
-        {/* ================= TOC ================= */}
-        <aside
-          className="
-            hidden xl:block
-            w-72
-            border-l border-neutral-800
-            px-6 py-10
-          "
-        >
+        {/* TOC */}
+        <aside className="hidden xl:block w-72 border-l border-neutral-800 px-6 py-10">
           <div className="sticky top-10 max-h-[calc(100vh-80px)] overflow-y-auto">
-
             <h2 className="text-sm font-semibold text-neutral-400 mb-4 uppercase tracking-wider">
               On this page
             </h2>
-
             <ul className="space-y-2 text-sm">
               {toc.map((item, i) => (
                 <li
                   key={i}
-                  style={{
-                    marginLeft: (item.level - 1) * 12,
-                  }}
+                  style={{ marginLeft: (item.level - 1) * 12 }}
                 >
                   <a
                     href={`#${item.id}`}
-                    className="
-                      block
-                      text-neutral-400
-                      hover:text-white
-                      transition
-                      leading-snug
-                    "
+                    className="block text-neutral-400 hover:text-white transition leading-snug"
                   >
                     {item.text}
                   </a>
