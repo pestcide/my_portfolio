@@ -15,6 +15,11 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PHOTO_DIR = os.path.join(BASE_DIR, "..", "Media")
 BLOG_DIR = os.path.join(BASE_DIR, "..", "Blogs")
 
+if not os.path.exists(PHOTO_DIR):
+    os.makedirs(PHOTO_DIR, exist_ok=True)
+if not os.path.exists(BLOG_DIR):
+    os.makedirs(BLOG_DIR, exist_ok=True)
+
 # 目标尺寸：最长边
 SIZES = {
     800: 75,     # Masonry / 列表
