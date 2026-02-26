@@ -56,5 +56,8 @@ module.exports = {
   		}
   	}
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    require("tailwindcss-animate"),     // 动画插件
+    require("@tailwindcss/typography"), // Markdown 排版插件
+  ],
 }

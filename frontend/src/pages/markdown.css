@@ -1,0 +1,36 @@
+/* ===============================
+   行内代码
+=============================== */
+
+.prose :not(pre) > code {
+  background: #171717;
+  padding: 0.2em 0.4em;
+  border-radius: 6px;
+  font-size: 0.9em;
+  color: #e5e7eb;
+}
+
+.prose code::before,
+.prose code::after {
+  content: none;
+}
+
+/* ===============================
+   代码块
+=============================== */
+
+.prose pre {
+  background: #171717;
+  border-radius: 12px;
+  padding: 16px;
+  overflow-x: auto;
+}
+
+.prose pre code {
+  background: transparent;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}

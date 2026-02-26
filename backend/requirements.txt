@@ -1,0 +1,3 @@
+fastapi==0.128.7
+Pillow==12.1.1
+python_jose==3.5.0
