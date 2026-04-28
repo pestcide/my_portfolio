@@ -7,6 +7,7 @@ from fastapi import HTTPException, Depends
 import shutil
 from fastapi import UploadFile, File
 from PIL import Image, ImageOps
+from datetime import datetime
 
 
 app = FastAPI()
@@ -41,25 +42,32 @@ def get_photos():
     photos = {}
 
     for f in files:
-        # ① 转相对路径（去掉 ./Media 前缀）
         rel_path = os.path.relpath(f, PHOTO_DIR)
-
-        # ② Windows -> URL 路径
         rel_path = rel_path.replace("\\", "/")
-
-        # ③ 生成 URL
         url = f"/Media/{rel_path}"
 
-        # ④ 生成 key（去掉文件名）
+        # ✅ 获取文件修改时间
+        mtime = datetime.fromtimestamp(os.path.getmtime(f))
+
         if rel_path.endswith("800.webp"):
             key = rel_path.replace("800.webp", "")
             photos.setdefault(key, {})["thumb"] = url
+            photos[key]["time"] = mtime
 
         if rel_path.endswith("2400.webp"):
             key = rel_path.replace("2400.webp", "")
             photos.setdefault(key, {})["full"] = url
+            photos[key]["time"] = mtime
 
-    return list(photos.values())
+    # ✅ 排序（最新在前）
+    result = list(photos.values())
+    result.sort(key=lambda x: x.get("time") or datetime.min, reverse=True)
+
+    # （可选）去掉 time 字段
+    for r in result:
+        r.pop("time", None)
+
+    return result
 
 @app.post("/api/login")
 def login(data: dict):
