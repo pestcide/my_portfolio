@@ -1,22 +1,47 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import myphoto from "../assets/home/myphoto.webp";
 import beian from "../assets/备案图标.png";
 
+const ALL_ID = "__all__";
+
 export default function Blogs() {
-  const [blogs, setBlogs] = useState([]);
+  const [data, setData] = useState({ columns: [], posts: [] });
+  const [avatarUrl, setAvatarUrl] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
+  const activeId = searchParams.get("column") || ALL_ID;
+
   useEffect(() => {
-    fetch("/api/Blogs")
+    fetch("/api/Columns")
       .then((res) => res.json())
       .then((data) => {
-        setBlogs(data);
+        setData(data);
       })
       .catch((err) => {
         console.error("加载博客失败:", err);
       });
+
+    fetch("/api/avatar")
+      .then((res) => res.json())
+      .then((d) => setAvatarUrl(d.url))
+      .catch(() => {});
   }, []);
+
+  function setActive(id) {
+    if (id === ALL_ID) {
+      searchParams.delete("column");
+      setSearchParams(searchParams, { replace: true });
+    } else {
+      setSearchParams({ column: id }, { replace: true });
+    }
+  }
+
+  const posts =
+    activeId === ALL_ID
+      ? data.posts
+      : data.posts.filter((p) => p.column_id === activeId);
 
   return (
     <div className="relative flex flex-col min-h-screen bg-neutral-950 text-white overflow-hidden">
@@ -41,7 +66,7 @@ export default function Blogs() {
                 <div className="flex justify-center mb-6">
                   <div className="w-32 h-32 rounded-full overflow-hidden border border-white/20">
                     <img
-                      src={myphoto}
+                      src={avatarUrl || myphoto}
                       alt="avatar"
                       className="w-full h-full object-cover"
                     />
@@ -110,13 +135,58 @@ export default function Blogs() {
 
           {/* ================= 右侧博客列表 ================= */}
           <div className="lg:col-span-2">
-            <h1 className="text-3xl font-bold mb-10 tracking-tight">
+            <h1 className="text-3xl font-bold mb-6 tracking-tight">
               Blogs
             </h1>
 
+            {/* ===== 专栏标签 ===== */}
+            <div className="flex gap-2 overflow-x-auto pb-2 mb-8">
+              <button
+                onClick={() => setActive(ALL_ID)}
+                className={`
+                  shrink-0 px-4 py-2 rounded-full text-sm font-medium
+                  transition whitespace-nowrap
+                  ${
+                    activeId === ALL_ID
+                      ? "bg-gradient-to-r from-purple-500 to-blue-500 text-white shadow-lg"
+                      : "bg-white/5 text-neutral-300 border border-white/10 hover:bg-white/10"
+                  }
+                `}
+              >
+                全部
+                <span className="ml-1.5 text-xs opacity-70">
+                  {data.posts.length}
+                </span>
+              </button>
+
+              {data.columns.map((col) => {
+                const isActive = activeId === col.id;
+                return (
+                  <button
+                    key={col.id}
+                    onClick={() => setActive(col.id)}
+                    className={`
+                      shrink-0 px-4 py-2 rounded-full text-sm font-medium
+                      transition whitespace-nowrap
+                      ${
+                        isActive
+                          ? "bg-gradient-to-r from-purple-500 to-blue-500 text-white shadow-lg"
+                          : "bg-white/5 text-neutral-300 border border-white/10 hover:bg-white/10"
+                      }
+                    `}
+                  >
+                    {col.name}
+                    <span className="ml-1.5 text-xs opacity-70">
+                      {col.posts.length}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
             {/* 两列布局 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {blogs.map((blog, idx) => (
+              {posts.map((blog, idx) => (
                 <div
                   key={idx}
                   onClick={() =>
@@ -141,8 +211,15 @@ export default function Blogs() {
                   {/* 左侧渐变条 */}
                   <div className="absolute left-0 top-6 bottom-6 w-1 rounded-full bg-gradient-to-b from-purple-500 to-blue-500 opacity-60 group-hover:opacity-100 transition" />
 
+                  {/* 专栏徽标 */}
+                  {blog.column && (
+                    <div className="absolute top-4 right-4 px-2.5 py-0.5 rounded-full bg-purple-500/15 border border-purple-400/30 text-[11px] text-purple-300">
+                      {blog.column}
+                    </div>
+                  )}
+
                   {/* 标题 */}
-                  <h2 className="text-xl font-semibold text-white mb-2 group-hover:text-purple-300 transition">
+                  <h2 className="text-xl font-semibold text-white mb-2 group-hover:text-purple-300 transition pr-16">
                     {blog.title}
                   </h2>
 

@@ -4,6 +4,9 @@
 
 ---
 
+## 项目地址
+[https://github.com/pestcide/my_portfolio](https://github.com/pestcide/my_portfolio)
+
 ## ✨ 项目功能
 
 - **博客列表**：目录页展示所有放在 `Blogs/` 文件夹下的 Markdown 文档，点击后可查看文章，支持 GitHub 风格 Markdown、公式、代码高亮和目录生成。

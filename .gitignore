@@ -2,3 +2,5 @@ Media
 photos
 Blogs
 .vscode
+.codegraph
+backend/auth_data.json

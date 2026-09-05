@@ -72,15 +72,15 @@ export default function BlogPost() {
     : "";
 
   return (
-    <div className="relative min-h-screen bg-neutral-950 text-white">
+    <div className="relative min-h-screen bg-neutral-950 text-white overflow-x-hidden">
 
-      {/* ================= 全局光晕 ================= */}
+      {/* 光晕 */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-purple-500/20 rounded-full blur-[120px]" />
         <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-blue-500/20 rounded-full blur-[120px]" />
       </div>
 
-      {/* ================= 返回按钮（页面级） ================= */}
+      {/* 返回按钮 */}
       <button
         onClick={() => navigate("/")}
         className="
@@ -96,28 +96,18 @@ export default function BlogPost() {
           hover:border-purple-400/40
           hover:-translate-y-0.5
           hover:shadow-[0_0_25px_rgba(139,92,246,0.4)]
-          group
         "
       >
-        <span
-          className="
-            text-lg
-            text-neutral-300
-            transition-transform duration-300
-            
-          "
-        >
-          ←
-        </span>
+        <span className="text-lg text-neutral-300">←</span>
       </button>
 
-      {/* ================= 页面内容 ================= */}
       <div className="relative z-10 max-w-[1600px] mx-auto flex">
 
         <div className="hidden 2xl:block w-64" />
 
         {/* 正文 */}
-        <main className="flex-1 px-6 lg:px-10 py-10">
+        <main className="flex-1 px-6 lg:px-10 py-10 min-w-0">
+
           <article
             className="
               prose prose-invert
@@ -126,13 +116,19 @@ export default function BlogPost() {
 
               prose-img:rounded-xl
               prose-img:shadow-xl
+              prose-img:max-w-full
+              prose-img:h-auto
 
               prose-pre:rounded-xl
               prose-pre:p-4
-              prose-pre:overflow-x-auto
               prose-pre:bg-neutral-900
+              prose-pre:max-w-full
+              prose-pre:overflow-x-auto
+
+              prose-code:whitespace-pre
             "
           >
+
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkMath]}
               rehypePlugins={[
@@ -141,20 +137,66 @@ export default function BlogPost() {
                 rehypeSlug,
               ]}
               components={{
+
+                /* 图片自适应 */
                 img: ({ src, ...props }) => {
                   let newSrc = src;
-                  if (
-                    !src.startsWith("http") &&
-                    !src.startsWith("/")
-                  ) {
+
+                  if (!src.startsWith("http") && !src.startsWith("/")) {
                     newSrc = basePath + src;
                   }
-                  return <img src={newSrc} {...props} />;
+
+                  return (
+                    <img
+                      src={newSrc}
+                      {...props}
+                      style={{
+                        maxWidth: "100%",
+                        height: "auto",
+                      }}
+                    />
+                  );
                 },
+
+                /* 代码块控制 */
+                pre: ({ children }) => (
+                  <pre
+                    style={{
+                      maxWidth: "100%",
+                      overflowX: "auto",
+                      whiteSpace: "pre",
+                    }}
+                  >
+                    {children}
+                  </pre>
+                ),
+
+                code: ({ inline, children, ...props }) => {
+                  if (inline) {
+                    return (
+                      <code className="bg-neutral-800 px-1 py-0.5 rounded">
+                        {children}
+                      </code>
+                    );
+                  }
+
+                  return (
+                    <code
+                      {...props}
+                      style={{
+                        whiteSpace: "pre",
+                      }}
+                    >
+                      {children}
+                    </code>
+                  );
+                },
+
                 a: ({ href, ...props }) => {
                   if (href?.startsWith("#")) {
                     href = href.toLowerCase();
                   }
+
                   return (
                     <a
                       href={href}
@@ -167,15 +209,18 @@ export default function BlogPost() {
             >
               {content}
             </ReactMarkdown>
+
           </article>
         </main>
 
         {/* TOC */}
         <aside className="hidden xl:block w-72 border-l border-neutral-800 px-6 py-10">
           <div className="sticky top-10 max-h-[calc(100vh-80px)] overflow-y-auto">
+
             <h2 className="text-sm font-semibold text-neutral-400 mb-4 uppercase tracking-wider">
-              On this page
+              Contents
             </h2>
+
             <ul className="space-y-2 text-sm">
               {toc.map((item, i) => (
                 <li
@@ -191,6 +236,7 @@ export default function BlogPost() {
                 </li>
               ))}
             </ul>
+
           </div>
         </aside>
       </div>
