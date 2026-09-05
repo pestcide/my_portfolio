@@ -1,34 +1,37 @@
-
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import BlogAdmin from "./BlogAdmin";
 import AccountAdmin from "./AccountAdmin";
+import {
+  inputClass,
+  primaryButtonClass,
+  ghostButtonClass,
+  dangerButtonClass,
+} from "../lib/ui-classes";
 
 const UNCATEGORIZED_ID = "__uncategorized__";
 
+const TABS = [
+  { id: "photos", label: "照片" },
+  { id: "blogs", label: "博客" },
+  { id: "account", label: "账号" },
+];
+
 export default function Admin() {
-  const [files, setFiles] = useState([]);
-  const [albumData, setAlbumData] = useState({
-    albums: [],
-    uncategorized: null,
-    all_photos: [],
-  });
-  const [selected, setSelected] = useState([]);
-
-  const [uploading, setUploading] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [msg, setMsg] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
-
-  const [uploadAlbumId, setUploadAlbumId] = useState(UNCATEGORIZED_ID);
-
-  const [newAlbumName, setNewAlbumName] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [editName, setEditName] = useState("");
-  const [coverPickerId, setCoverPickerId] = useState(null);
-
   const token = localStorage.getItem("token");
+
+  const tab = searchParams.get("tab") || "photos";
+
+  function setTab(id) {
+    searchParams.set("tab", id);
+    setSearchParams(searchParams, { replace: true });
+  }
 
   // ===== 登录校验 =====
   useEffect(() => {
@@ -47,79 +50,216 @@ export default function Admin() {
         window.location.href = "/login";
       } else {
         setChecking(false);
-        loadPhotos();
       }
     });
   }, []);
 
-  // ===== 加载专辑数据 =====
-  async function loadPhotos() {
-    const res = await fetch("/api/Albums");
-    const data = await res.json();
-    setAlbumData(data);
+  // ===== 登录检测中 =====
+  if (checking) {
+    return (
+      <div className="w-screen h-screen bg-paper flex items-center justify-center text-ink-faint text-sm">
+        Checking login...
+      </div>
+    );
   }
+
+  return (
+    <div className="relative w-screen min-h-screen bg-paper">
+      <div className="relative z-10 max-w-6xl mx-auto px-6 py-16 page-enter">
+        <div className="flex items-center gap-5 mb-10">
+          <button
+            onClick={() => navigate("/")}
+            className="
+              h-9 px-4
+              flex items-center
+              rounded-full
+              border border-line
+              text-sm text-ink-soft
+              transition-all duration-300
+              hover:text-clay-dark hover:border-clay/50
+            "
+          >
+            ← 返回首页
+          </button>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            后台管理
+          </h1>
+        </div>
+
+        {/* ===== Tab 导航 ===== */}
+        <div className="flex gap-8 border-b border-line mb-12">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`
+                pb-3 -mb-px text-sm border-b transition
+                ${
+                  tab === t.id
+                    ? "text-ink border-clay"
+                    : "text-ink-faint border-transparent hover:text-ink"
+                }
+              `}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === "photos" && <PhotosAdmin />}
+        {tab === "blogs" && <BlogAdmin />}
+        {tab === "account" && <AccountAdmin />}
+      </div>
+    </div>
+  );
+}
+
+// ==================== 照片 Tab ====================
+
+function PhotosAdmin() {
+  const toast = useToast();
+  const { confirm } = useConfirm();
+  const token = localStorage.getItem("token");
+
+  const [albumData, setAlbumData] = useState({
+    albums: [],
+    uncategorized: null,
+    all_photos: [],
+  });
+  const [selected, setSelected] = useState([]);
+  const [filterAlbum, setFilterAlbum] = useState("all");
+  const [search, setSearch] = useState("");
+
+  const [deleting, setDeleting] = useState(false);
+
+  // 上传
+  const [uploadAlbumId, setUploadAlbumId] = useState(UNCATEGORIZED_ID);
+  const [uploadItems, setUploadItems] = useState([]);
+
+  // 专辑管理
+  const [newAlbumName, setNewAlbumName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editName, setEditName] = useState("");
+  const [coverPickerId, setCoverPickerId] = useState(null);
 
   const allAlbums = [
     ...albumData.albums,
     ...(albumData.uncategorized ? [albumData.uncategorized] : []),
   ];
 
-  // 照片文件夹 -> 所属专辑名（用于徽标）
-  const albumOfFolder = {};
+  // 照片文件夹 -> 所属专辑 id（用于筛选/徽标）
+  const albumIdOfFolder = {};
   albumData.albums.forEach((a) =>
     a.photos.forEach((p) => {
-      albumOfFolder[p.folder] = a.name;
+      albumIdOfFolder[p.folder] = a.id;
     })
   );
-  albumData.all_photos.forEach((p) => {
-    if (!albumOfFolder[p.folder]) albumOfFolder[p.folder] = "未分类";
-  });
 
-  // ===== 选择文件 =====
-  function handleSelect(e) {
-    setFiles([...e.target.files]);
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function load() {
+    const res = await fetch("/api/Albums");
+    setAlbumData(await res.json());
   }
 
-  // ===== 上传（支持目标专辑） =====
-  async function handleUpload() {
-    if (!files.length) return;
-
-    setUploading(true);
-    setMsg("");
-
+  // ===== 并发上传（同时 3 张，逐张状态） =====
+  async function uploadOne(item, albumId) {
     try {
-      for (const file of files) {
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("album_id", uploadAlbumId);
+      setUploadItems((up) =>
+        up.map((u) =>
+          u.id === item.id ? { ...u, status: "uploading", error: null } : u
+        )
+      );
 
-        const res = await fetch("/api/upload", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        });
+      const formData = new FormData();
+      formData.append("file", item.file);
+      formData.append("album_id", albumId);
 
-        const data = await res.json();
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.detail || "上传失败");
 
-        if (!res.ok) {
-          throw new Error(data.detail || "上传失败");
-        }
-      }
-
-      setMsg("上传成功 ✅");
-      setFiles([]);
-      document.getElementById("fileInput").value = "";
-      loadPhotos();
+      setUploadItems((up) =>
+        up.map((u) => (u.id === item.id ? { ...u, status: "done" } : u))
+      );
+      return true;
     } catch (err) {
-      setMsg(err.message);
-    } finally {
-      setUploading(false);
+      setUploadItems((up) =>
+        up.map((u) =>
+          u.id === item.id ? { ...u, status: "error", error: err.message } : u
+        )
+      );
+      return false;
     }
   }
 
-  // ===== 勾选（按照片文件夹名） =====
+  async function handleFiles(e) {
+    const files = [...e.target.files];
+    e.target.value = "";
+    if (!files.length) return;
+
+    const stamp = Date.now();
+    const items = files.map((f, i) => ({
+      id: `${stamp}-${i}`,
+      file: f,
+      name: f.name,
+      status: "waiting",
+      error: null,
+    }));
+    setUploadItems((prev) => [...items, ...prev]);
+
+    const albumId = uploadAlbumId;
+    let index = 0;
+    let ok = 0;
+    let fail = 0;
+    const next = () => (index < items.length ? items[index++] : null);
+
+    const workers = Array.from(
+      { length: Math.min(3, items.length) },
+      async () => {
+        while (true) {
+          const item = next();
+          if (!item) break;
+          const success = await uploadOne(item, albumId);
+          success ? ok++ : fail++;
+        }
+      }
+    );
+
+    await Promise.all(workers);
+    load();
+    toast(
+      fail
+        ? `上传完成：${ok} 张成功，${fail} 张失败`
+        : `成功上传 ${ok} 张`,
+      fail ? "error" : "success"
+    );
+  }
+
+  async function handleRetry(item) {
+    const success = await uploadOne(item, uploadAlbumId);
+    if (success) {
+      load();
+      toast("重试成功", "success");
+    } else {
+      toast("重试失败", "error");
+    }
+  }
+
+  function clearFinished() {
+    setUploadItems((prev) => prev.filter((u) => u.status !== "done"));
+  }
+
+  // ===== 勾选 =====
   function toggleSelect(folder) {
     setSelected((prev) =>
       prev.includes(folder)
@@ -128,8 +268,8 @@ export default function Admin() {
     );
   }
 
-  function selectAll() {
-    setSelected(albumData.all_photos.map((p) => p.folder));
+  function selectVisible() {
+    setSelected(filtered.map((p) => p.folder));
   }
 
   function clearSelect() {
@@ -152,29 +292,85 @@ export default function Admin() {
         },
         body: JSON.stringify({ folders }),
       });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.detail || "移动失败");
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.detail || "移动失败");
-      }
-
-      setMsg(`已移动 ${folders.length} 张到「${targetName}」✅`);
+      toast(`已移动 ${folders.length} 张到「${targetName}」`, "success");
       setSelected([]);
-      loadPhotos();
+      load();
     } catch (err) {
-      setMsg(err.message);
+      toast(err.message, "error");
     }
   }
 
-  // ===== 专辑：新建 =====
+  // ===== 删除照片 =====
+  async function handleDelete(folder) {
+    const ok = await confirm({
+      title: "删除照片",
+      description: `确定删除「${folder}」？缩略图与大图会一并删除，不可恢复。`,
+      confirmText: "删除",
+    });
+    if (!ok) return;
+
+    try {
+      const res = await fetch(`/api/delete?folder=${folder}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.detail || "删除失败");
+
+      toast("已删除", "success");
+      setSelected((prev) => prev.filter((f) => f !== folder));
+      load();
+    } catch (err) {
+      toast(err.message, "error");
+    }
+  }
+
+  async function handleBatchDelete() {
+    if (!selected.length) return;
+
+    const ok = await confirm({
+      title: "批量删除照片",
+      description: `确定删除选中的 ${selected.length} 张照片？不可恢复。`,
+      confirmText: `删除 ${selected.length} 张`,
+    });
+    if (!ok) return;
+
+    setDeleting(true);
+    try {
+      let fail = 0;
+      for (const folder of selected) {
+        const res = await fetch(`/api/delete?folder=${folder}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!res.ok) fail++;
+      }
+
+      if (fail) {
+        toast(`删除完成，${selected.length - fail} 张成功，${fail} 张失败`, "error");
+      } else {
+        toast(`已删除 ${selected.length} 张`, "success");
+      }
+      setSelected([]);
+      load();
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  // ===== 专辑管理 =====
   async function handleCreateAlbum() {
     const name = newAlbumName.trim();
     if (!name) return;
 
     setCreating(true);
-    setMsg("");
-
     try {
       const res = await fetch("/api/Albums", {
         method: "POST",
@@ -184,24 +380,19 @@ export default function Admin() {
         },
         body: JSON.stringify({ name }),
       });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.detail || "创建失败");
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.detail || "创建失败");
-      }
-
-      setMsg(`专辑「${name}」创建成功 ✅`);
+      toast(`专辑「${name}」已创建`, "success");
       setNewAlbumName("");
-      loadPhotos();
+      load();
     } catch (err) {
-      setMsg(err.message);
+      toast(err.message, "error");
     } finally {
       setCreating(false);
     }
   }
 
-  // ===== 专辑：重命名 =====
   async function handleRename(albumId) {
     const name = editName.trim();
     if (!name) {
@@ -218,23 +409,18 @@ export default function Admin() {
         },
         body: JSON.stringify({ name }),
       });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.detail || "重命名失败");
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.detail || "重命名失败");
-      }
-
-      setMsg(`已重命名为「${name}」✅`);
-      loadPhotos();
+      toast(`已重命名为「${name}」`, "success");
+      load();
     } catch (err) {
-      setMsg(err.message);
+      toast(err.message, "error");
     } finally {
       setEditingId(null);
     }
   }
 
-  // ===== 专辑：设置封面 =====
   async function handleSetCover(albumId, folder) {
     try {
       const res = await fetch(`/api/Albums/${albumId}`, {
@@ -245,25 +431,25 @@ export default function Admin() {
         },
         body: JSON.stringify({ cover: folder }),
       });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.detail || "设置封面失败");
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.detail || "设置封面失败");
-      }
-
-      setMsg("封面已更新 ✅");
-      loadPhotos();
+      toast("封面已更新", "success");
+      load();
     } catch (err) {
-      setMsg(err.message);
+      toast(err.message, "error");
     } finally {
       setCoverPickerId(null);
     }
   }
 
-  // ===== 专辑：删除 =====
   async function handleDeleteAlbum(albumId, name) {
-    if (!confirm(`确定删除专辑「${name}」？其中的照片将回到未分类。`)) return;
+    const ok = await confirm({
+      title: "删除专辑",
+      description: `确定删除专辑「${name}」？专辑内的照片将回到未分类，不会被删除。`,
+      confirmText: "删除专辑",
+    });
+    if (!ok) return;
 
     try {
       const res = await fetch(`/api/Albums/${albumId}`, {
@@ -272,213 +458,328 @@ export default function Admin() {
           Authorization: `Bearer ${token}`,
         },
       });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.detail || "删除失败");
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.detail || "删除失败");
-      }
-
-      setMsg(`专辑「${name}」已删除 🗑️`);
-      loadPhotos();
+      toast(`专辑「${name}」已删除`, "success");
+      if (filterAlbum === albumId) setFilterAlbum("all");
+      load();
     } catch (err) {
-      setMsg(err.message);
+      toast(err.message, "error");
     }
   }
 
-  // ===== 单删 =====
-  async function handleDeleteByUrl(url) {
-    const match = url.match(/\/Media\/(.*?)\//);
-    if (!match) return;
-
-    const folder = match[1];
-
-    if (!confirm(`确定删除 ${folder} ?`)) return;
-
-    try {
-      const res = await fetch(`/api/delete?folder=${folder}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.detail || "删除失败");
-      }
-
-      setMsg("删除成功 🗑️");
-      loadPhotos();
-    } catch (err) {
-      setMsg(err.message);
-    }
-  }
-
-  // ===== 批量删除 =====
-  async function handleBatchDelete() {
-    if (selected.length === 0) return;
-
-    if (!confirm(`确定删除选中的 ${selected.length} 项？`)) return;
-
-    setDeleting(true);
-    setMsg("");
-
-    try {
-      for (const folder of selected) {
-        const res = await fetch(`/api/delete?folder=${folder}`, {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.detail || `删除失败: ${folder}`);
-        }
-      }
-
-      setMsg("批量删除成功 🗑️");
-      setSelected([]);
-      loadPhotos();
-    } catch (err) {
-      setMsg(err.message);
-    } finally {
-      setDeleting(false);
-    }
-  }
-
-  // ===== 登录检测中 =====
-  if (checking) {
-    return (
-      <div className="w-screen h-screen bg-neutral-950 flex items-center justify-center text-neutral-400">
-        Checking login...
-      </div>
-    );
-  }
+  // ===== 筛选后的照片 =====
+  const filtered = albumData.all_photos.filter((p) => {
+    const matchAlbum =
+      filterAlbum === "all" ||
+      albumIdOfFolder[p.folder] === filterAlbum ||
+      (filterAlbum === UNCATEGORIZED_ID && !albumIdOfFolder[p.folder]);
+    const matchSearch =
+      !search || p.folder.toLowerCase().includes(search.toLowerCase());
+    return matchAlbum && matchSearch;
+  });
 
   const coverPickerAlbum = allAlbums.find((a) => a.id === coverPickerId);
 
   return (
-    <div className="relative w-screen min-h-screen bg-neutral-950 overflow-hidden">
-      {/* 背景光晕 */}
-      <div className="absolute inset-0">
-        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-purple-500/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-blue-500/20 rounded-full blur-3xl" />
-      </div>
+    <div className="flex flex-col gap-14">
+      {/* ===== 上传 ===== */}
+      <section>
+        <h2 className="text-sm font-medium text-ink uppercase tracking-widest mb-6">
+          上传照片
+        </h2>
 
-      <div className="relative z-10 max-w-6xl mx-auto px-6 py-24 flex flex-col gap-16">
-
-        {/* ===== 上传 ===== */}
-        <section className="bg-white/5 backdrop-blur-3xl border border-white/15 rounded-3xl p-10 shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
-          <h2 className="text-xl font-semibold text-neutral-100 mb-6">
-            上传图片
-          </h2>
-
-          <div className="flex flex-col md:flex-row gap-6 items-center">
+        <div className="flex flex-col md:flex-row gap-4 items-start">
+          <label
+            className="px-4 py-2.5 rounded-xl border border-line text-sm text-ink hover:border-clay/50 hover:text-clay-dark transition cursor-pointer"
+          >
+            选择图片
             <input
               id="fileInput"
               type="file"
               multiple
               accept="image/*"
-              onChange={handleSelect}
-              className="text-neutral-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-white/90 file:text-neutral-900 hover:file:bg-white file:cursor-pointer"
+              onChange={handleFiles}
+              className="hidden"
             />
+          </label>
+
+          <select
+            value={uploadAlbumId}
+            onChange={(e) => setUploadAlbumId(e.target.value)}
+            className={`${inputClass} md:w-52`}
+          >
+            {allAlbums.map((a) => (
+              <option key={a.id} value={a.id} className="bg-paper-raised">
+                上传到：{a.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* 逐张上传状态 */}
+        {uploadItems.length > 0 && (
+          <div className="mt-6 border border-line rounded-2xl divide-y divide-line">
+            {uploadItems.map((u) => (
+              <div
+                key={u.id}
+                className="flex items-center gap-4 px-4 py-2.5 text-sm"
+              >
+                <span className="flex-1 min-w-0 truncate text-ink">
+                  {u.name}
+                </span>
+
+                {u.status === "waiting" && (
+                  <span className="text-xs text-ink-faint">排队中</span>
+                )}
+                {u.status === "uploading" && (
+                  <span className="text-xs text-ink-soft">上传中...</span>
+                )}
+                {u.status === "done" && (
+                  <span className="text-xs text-ink-faint">完成</span>
+                )}
+                {u.status === "error" && (
+                  <>
+                    <span className="text-xs text-red-600 truncate max-w-[50%]">
+                      {u.error}
+                    </span>
+                    <button
+                      onClick={() => handleRetry(u)}
+                      className={ghostButtonClass}
+                    >
+                      重试
+                    </button>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {uploadItems.some((u) => u.status === "done") && (
+          <button
+            onClick={clearFinished}
+            className="mt-3 text-xs text-ink-faint hover:text-clay-dark transition"
+          >
+            清除已完成
+          </button>
+        )}
+      </section>
+
+      {/* ===== 图库管理 ===== */}
+      <section>
+        <div className="flex flex-col md:flex-row md:items-center gap-4 mb-6">
+          <h2 className="text-sm font-medium text-ink uppercase tracking-widest">
+            图库管理
+          </h2>
+          <div className="flex-1" />
+          <select
+            value={filterAlbum}
+            onChange={(e) => setFilterAlbum(e.target.value)}
+            className={`${inputClass} md:w-44 py-2`}
+          >
+            <option value="all" className="bg-paper-raised">
+              全部专辑
+            </option>
+            {albumData.albums.map((a) => (
+              <option key={a.id} value={a.id} className="bg-paper-raised">
+                {a.name}
+              </option>
+            ))}
+            <option value={UNCATEGORIZED_ID} className="bg-paper-raised">
+              未分类
+            </option>
+          </select>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="搜索文件名"
+            className={`${inputClass} md:w-48 py-2`}
+          />
+        </div>
+
+        {/* 吸顶批量操作栏 */}
+        {selected.length > 0 && (
+          <div
+            className="
+              sticky top-0 z-20 -mx-6 px-6 py-3 mb-4
+              bg-paper/95 border-b border-line
+              flex flex-wrap items-center gap-3
+            "
+          >
+            <span className="text-sm text-ink">
+              已选 {selected.length} 项
+            </span>
 
             <select
-              value={uploadAlbumId}
-              onChange={(e) => setUploadAlbumId(e.target.value)}
-              className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-neutral-200 outline-none"
+              value=""
+              onChange={(e) => {
+                handleMove(selected, e.target.value);
+                e.target.value = "";
+              }}
+              className="px-3 py-1.5 rounded-full bg-paper-raised border border-line text-xs text-ink outline-none"
             >
+              <option value="" disabled className="bg-paper-raised">
+                移动到...
+              </option>
               {allAlbums.map((a) => (
-                <option key={a.id} value={a.id} className="bg-neutral-900">
-                  上传到：{a.name}
+                <option key={a.id} value={a.id} className="bg-paper-raised">
+                  {a.name}
                 </option>
               ))}
             </select>
 
             <button
-              onClick={handleUpload}
-              disabled={uploading}
-              className="px-6 py-3 rounded-full bg-white/90 text-neutral-900 font-semibold shadow-lg hover:bg-white hover:scale-105 transition disabled:opacity-50"
+              onClick={handleBatchDelete}
+              disabled={deleting}
+              className={dangerButtonClass}
             >
-              {uploading ? "上传中..." : "开始上传"}
+              {deleting ? "删除中..." : `批量删除 (${selected.length})`}
+            </button>
+
+            <button onClick={clearSelect} className={ghostButtonClass}>
+              取消选择
+            </button>
+
+            <button
+              onClick={selectVisible}
+              className="text-xs text-ink-faint hover:text-clay-dark transition"
+            >
+              全选当前筛选（{filtered.length}）
             </button>
           </div>
-
-          {msg && (
-            <div className="mt-4 text-sm text-neutral-300">{msg}</div>
-          )}
-        </section>
-
-        {/* ===== 上传预览 ===== */}
-        {files.length > 0 && (
-          <section className="bg-white/5 backdrop-blur-3xl border border-white/15 rounded-3xl p-10 shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
-            <h2 className="text-xl font-semibold text-neutral-100 mb-6">
-              上传预览
-            </h2>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              {files.map((file, i) => (
-                <div key={i} className="bg-white/5 rounded-xl overflow-hidden border border-white/10">
-                  <img
-                    src={URL.createObjectURL(file)}
-                    alt="preview"
-                    className="object-cover aspect-square"
-                  />
-                  <div className="p-2 text-xs text-neutral-400 truncate">
-                    {file.name}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
         )}
 
-        {/* ===== 专辑管理 ===== */}
-        <section className="bg-white/5 backdrop-blur-3xl border border-white/15 rounded-3xl p-10 shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
-          <h2 className="text-xl font-semibold text-neutral-100 mb-6">
-            专辑管理
-          </h2>
-
-          {/* 新建专辑 */}
-          <div className="flex flex-col md:flex-row gap-4 items-center mb-8">
-            <input
-              value={newAlbumName}
-              onChange={(e) => setNewAlbumName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleCreateAlbum()}
-              placeholder="新专辑名称"
-              className="flex-1 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-neutral-200 placeholder:text-neutral-500 outline-none focus:border-purple-400/40"
-            />
-            <button
-              onClick={handleCreateAlbum}
-              disabled={creating || !newAlbumName.trim()}
-              className="px-6 py-2.5 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 text-white text-sm font-semibold hover:opacity-90 transition disabled:opacity-40"
-            >
-              {creating ? "创建中..." : "创建专辑"}
-            </button>
+        {filtered.length === 0 ? (
+          <div className="py-16 text-sm text-ink-faint text-center border border-dashed border-line rounded-2xl">
+            {albumData.all_photos.length === 0 ? "暂无照片" : "没有匹配的照片"}
           </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+            {filtered.map((p) => (
+              <div
+                key={p.folder}
+                className="group relative rounded-xl overflow-hidden border border-line bg-paper-raised"
+              >
+                <input
+                  type="checkbox"
+                  checked={selected.includes(p.folder)}
+                  onChange={() => toggleSelect(p.folder)}
+                  className="absolute top-2 left-2 z-10 w-4 h-4 accent-white cursor-pointer"
+                />
 
-          {/* 专辑列表 */}
-          <div className="flex flex-col gap-3">
+                <img
+                  src={p.thumb}
+                  alt={p.folder}
+                  loading="lazy"
+                  className="object-cover aspect-square w-full"
+                />
+
+                <div className="absolute top-2 right-2 z-10 px-2 py-0.5 rounded-full bg-ink/80 border border-line text-[10px] text-ink max-w-[70%] truncate">
+                  {albumIdOfFolder[p.folder]
+                    ? allAlbums.find(
+                        (a) => a.id === albumIdOfFolder[p.folder]
+                      )?.name
+                    : "未分类"}
+                </div>
+
+                {/* 悬浮操作 */}
+                <div
+                  className="
+                    absolute inset-0 bg-ink/60
+                    opacity-0 group-hover:opacity-100
+                    flex flex-col items-center justify-center gap-2 p-2
+                    transition
+                  "
+                >
+                  <button
+                    onClick={() => handleDelete(p.folder)}
+                    className={dangerButtonClass}
+                  >
+                    删除
+                  </button>
+
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value)
+                        handleMove([p.folder], e.target.value);
+                      e.target.value = "";
+                    }}
+                    className="px-2 py-1 rounded-full bg-paper-raised border border-line text-ink text-xs outline-none"
+                  >
+                    <option value="" disabled className="bg-paper-raised">
+                      移动到...
+                    </option>
+                    {allAlbums
+                      .filter(
+                        (a) =>
+                          (!albumIdOfFolder[p.folder] &&
+                            a.id !== UNCATEGORIZED_ID) ||
+                          albumIdOfFolder[p.folder] !== a.id
+                      )
+                      .map((a) => (
+                        <option
+                          key={a.id}
+                          value={a.id}
+                          className="bg-paper-raised"
+                        >
+                          {a.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* ===== 专辑管理 ===== */}
+      <section>
+        <h2 className="text-sm font-medium text-ink uppercase tracking-widest mb-6">
+          专辑管理
+        </h2>
+
+        <div className="flex flex-col md:flex-row gap-4 items-center mb-8">
+          <input
+            value={newAlbumName}
+            onChange={(e) => setNewAlbumName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleCreateAlbum()}
+            placeholder="新专辑名称"
+            className={`${inputClass} flex-1 w-full`}
+          />
+          <button
+            onClick={handleCreateAlbum}
+            disabled={creating || !newAlbumName.trim()}
+            className={`${primaryButtonClass} shrink-0`}
+          >
+            {creating ? "创建中..." : "创建专辑"}
+          </button>
+        </div>
+
+        {allAlbums.length === 0 ? (
+          <div className="py-12 text-sm text-ink-faint text-center border border-dashed border-line rounded-2xl">
+            暂无专辑
+          </div>
+        ) : (
+          <div className="divide-y divide-line border-y border-line/70">
             {allAlbums.map((a) => {
               const isUncategorized = a.id === UNCATEGORIZED_ID;
               return (
                 <div
                   key={a.id}
-                  className="flex items-center gap-4 p-3 rounded-2xl bg-white/5 border border-white/10"
+                  className="flex items-center gap-4 py-3"
                 >
                   {a.cover ? (
                     <img
                       src={a.cover.thumb}
                       alt={a.name}
-                      className="w-14 h-14 rounded-xl object-cover shrink-0"
+                      className="w-12 h-12 rounded-lg object-cover border border-line shrink-0"
                     />
                   ) : (
-                    <div className="w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center shrink-0 text-neutral-500 text-xs">
+                    <div className="w-12 h-12 rounded-lg border border-dashed border-line flex items-center justify-center shrink-0 text-ink-faint text-xs">
                       空
                     </div>
                   )}
@@ -493,16 +794,16 @@ export default function Admin() {
                           if (e.key === "Enter") handleRename(a.id);
                           if (e.key === "Escape") setEditingId(null);
                         }}
-                        className="w-full max-w-xs px-3 py-1.5 rounded-lg bg-white/10 border border-white/15 text-sm text-neutral-100 outline-none"
+                        className="w-full max-w-xs px-3 py-1.5 rounded-lg bg-paper-raised border border-line text-sm text-ink outline-none"
                       />
                     ) : (
-                      <div className="text-sm text-neutral-100 truncate">
+                      <div className="text-sm text-ink truncate">
                         {a.name}
                       </div>
                     )}
-                    <div className="text-xs text-neutral-500 mt-0.5">
+                    <div className="text-xs text-ink-faint mt-0.5">
                       {a.photos.length} 张
-                      {isUncategorized && " · 不可删除"}
+                      {isUncategorized && " · 默认分组，不可删除"}
                     </div>
                   </div>
 
@@ -511,13 +812,13 @@ export default function Admin() {
                       <>
                         <button
                           onClick={() => handleRename(a.id)}
-                          className="px-3 py-1.5 rounded-full bg-emerald-500/90 text-white text-xs hover:bg-emerald-500"
+                          className={primaryButtonClass + " px-4 py-1.5 text-xs"}
                         >
                           保存
                         </button>
                         <button
                           onClick={() => setEditingId(null)}
-                          className="px-3 py-1.5 rounded-full bg-white/10 text-neutral-300 text-xs hover:bg-white/20"
+                          className={ghostButtonClass}
                         >
                           取消
                         </button>
@@ -530,21 +831,21 @@ export default function Admin() {
                             setEditingId(a.id);
                             setEditName(a.name);
                           }}
-                          className="px-3 py-1.5 rounded-full bg-white/10 text-neutral-300 text-xs hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed"
+                          className={ghostButtonClass}
                         >
                           重命名
                         </button>
                         <button
                           disabled={isUncategorized || a.photos.length === 0}
                           onClick={() => setCoverPickerId(a.id)}
-                          className="px-3 py-1.5 rounded-full bg-white/10 text-neutral-300 text-xs hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed"
+                          className={ghostButtonClass}
                         >
                           设封面
                         </button>
                         <button
                           disabled={isUncategorized}
                           onClick={() => handleDeleteAlbum(a.id, a.name)}
-                          className="px-3 py-1.5 rounded-full bg-red-500/90 text-white text-xs hover:bg-red-500 disabled:opacity-30 disabled:cursor-not-allowed"
+                          className={dangerButtonClass}
                         >
                           删除
                         </button>
@@ -555,156 +856,13 @@ export default function Admin() {
               );
             })}
           </div>
-        </section>
-
-        {/* ===== 博客管理（专栏 + 文章） ===== */}
-        <BlogAdmin />
-
-        {/* ===== 图片管理 ===== */}
-        <section className="bg-white/5 backdrop-blur-3xl border border-white/15 rounded-3xl p-10 shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
-
-          {/* 标题 + 操作栏 */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
-            <h2 className="text-xl font-semibold text-neutral-100">
-              图片管理
-            </h2>
-
-            <div className="flex items-center gap-4">
-              <button
-                onClick={selectAll}
-                className="text-sm text-neutral-300 hover:text-white"
-              >
-                全选
-              </button>
-
-              <button
-                onClick={clearSelect}
-                className="text-sm text-neutral-300 hover:text-white"
-              >
-                取消
-              </button>
-
-              {/* 批量移动 */}
-              <select
-                value=""
-                disabled={selected.length === 0}
-                onChange={(e) => {
-                  handleMove(selected, e.target.value);
-                  e.target.value = "";
-                }}
-                className="px-3 py-2 rounded-full bg-white/10 border border-white/10 text-sm text-neutral-200 outline-none disabled:opacity-40"
-              >
-                <option value="" disabled className="bg-neutral-900">
-                  移动到... ({selected.length})
-                </option>
-                {allAlbums.map((a) => (
-                  <option key={a.id} value={a.id} className="bg-neutral-900">
-                    {a.name}
-                  </option>
-                ))}
-              </select>
-
-              <button
-                onClick={handleBatchDelete}
-                disabled={selected.length === 0 || deleting}
-                className="
-                  px-4 py-2 rounded-full
-                  bg-red-500 text-white text-sm
-                  hover:bg-red-600
-                  disabled:opacity-40
-                "
-              >
-                {deleting
-                  ? "删除中..."
-                  : `批量删除 (${selected.length})`}
-              </button>
-            </div>
-          </div>
-
-          {albumData.all_photos.length === 0 ? (
-            <div className="text-neutral-400 text-sm">暂无图片</div>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              {albumData.all_photos.map((p) => (
-                <div
-                  key={p.folder}
-                  className="group relative bg-white/5 rounded-xl overflow-hidden border border-white/10"
-                >
-                  {/* 勾选框 */}
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(p.folder)}
-                    onChange={() => toggleSelect(p.folder)}
-                    className="absolute top-2 left-2 z-10 w-4 h-4"
-                  />
-
-                  <img
-                    src={p.thumb}
-                    className="object-cover aspect-square"
-                  />
-
-                  {/* 专辑徽标 */}
-                  <div className="absolute top-2 right-2 z-10 px-2 py-0.5 rounded-full bg-black/60 text-[10px] text-neutral-200 max-w-[70%] truncate">
-                    {albumOfFolder[p.folder]}
-                  </div>
-
-                  {/* 悬浮操作 */}
-                  <div
-                    className="
-                      absolute inset-0
-                      bg-black/60
-                      opacity-0
-                      group-hover:opacity-100
-                      flex flex-col items-center justify-center gap-2
-                      p-2
-                      transition
-                    "
-                  >
-                    <button
-                      onClick={() => handleDeleteByUrl(p.thumb)}
-                      className="px-4 py-1.5 rounded-full bg-red-500 text-white text-xs hover:bg-red-600"
-                    >
-                      删除
-                    </button>
-
-                    <select
-                      value=""
-                      onChange={(e) => {
-                        if (e.target.value) handleMove([p.folder], e.target.value);
-                        e.target.value = "";
-                      }}
-                      className="px-2 py-1 rounded-full bg-white/90 text-neutral-900 text-xs outline-none"
-                    >
-                      <option value="" disabled className="bg-neutral-900">
-                        移动到...
-                      </option>
-                      {allAlbums
-                        .filter((a) => albumOfFolder[p.folder] !== a.name)
-                        .map((a) => (
-                          <option
-                            key={a.id}
-                            value={a.id}
-                            className="bg-neutral-900"
-                          >
-                            {a.name}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* ===== 账号设置（改密码 + 头像） ===== */}
-        <AccountAdmin />
-      </div>
+        )}
+      </section>
 
       {/* ===== 封面选择弹窗 ===== */}
       <Dialog open={!!coverPickerId} onOpenChange={() => setCoverPickerId(null)}>
-        <DialogContent className="z-50 bg-neutral-900 border border-white/15 rounded-3xl max-w-3xl max-h-[80vh] overflow-y-auto">
-          <h3 className="text-lg font-semibold text-neutral-100 mb-4">
+        <DialogContent className="z-50 bg-paper-raised border border-line rounded-2xl max-w-3xl max-h-[80vh] overflow-y-auto">
+          <h3 className="text-base font-semibold text-ink mb-5">
             选择「{coverPickerAlbum?.name}」封面
           </h3>
 
@@ -713,11 +871,11 @@ export default function Admin() {
               onClick={() => handleSetCover(coverPickerId, null)}
               className={`
                 aspect-square rounded-xl border flex items-center justify-center
-                text-xs text-neutral-400 transition
+                text-xs text-ink-faint transition
                 ${
                   !coverPickerAlbum?.cover
-                    ? "border-purple-400/60 bg-purple-500/10"
-                    : "border-white/10 bg-white/5 hover:bg-white/10"
+                    ? "border-clay text-ink"
+                    : "border-line hover:border-clay/50"
                 }
               `}
             >
@@ -732,12 +890,13 @@ export default function Admin() {
                   onClick={() => handleSetCover(coverPickerId, p.folder)}
                   className={`relative rounded-xl overflow-hidden border transition ${
                     isCover
-                      ? "border-purple-400/60 ring-2 ring-purple-400/40"
-                      : "border-white/10 hover:opacity-80"
+                      ? "border-clay ring-1 ring-clay"
+                      : "border-line hover:border-clay/50"
                   }`}
                 >
                   <img
                     src={p.thumb}
+                    alt={p.folder}
                     className="w-full aspect-square object-cover"
                   />
                 </button>

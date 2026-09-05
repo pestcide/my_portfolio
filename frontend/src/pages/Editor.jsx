@@ -5,8 +5,9 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeHighlight from "rehype-highlight";
 import rehypeKatex from "rehype-katex";
+import { useToast } from "@/components/ui/toast";
 
-import "highlight.js/styles/github-dark.css";
+import "highlight.js/styles/github.css";
 import "katex/dist/katex.min.css";
 import "./markdown.css";
 
@@ -14,13 +15,13 @@ export default function Editor() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const folder = params.get("folder");
+  const toast = useToast();
 
   const [content, setContent] = useState("");
   const [savedContent, setSavedContent] = useState("");
   const [previewMode, setPreviewMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
 
@@ -61,7 +62,7 @@ export default function Editor() {
       setContent(data.content);
       setSavedContent(data.content);
     } catch (err) {
-      setMsg(err.message);
+      toast(err.message, "error");
     } finally {
       setLoading(false);
     }
@@ -84,7 +85,6 @@ export default function Editor() {
   // ===== 保存 =====
   async function handleSave() {
     setSaving(true);
-    setMsg("");
     try {
       const res = await fetch(`/api/Blogs/${encodeURIComponent(folder)}`, {
         method: "PUT",
@@ -97,10 +97,9 @@ export default function Editor() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "保存失败");
       setSavedContent(content);
-      setMsg("已保存 ✅");
-      setTimeout(() => setMsg(""), 2000);
+      toast("已保存", "success");
     } catch (err) {
-      setMsg(err.message);
+      toast(err.message, "error");
     } finally {
       setSaving(false);
     }
@@ -113,7 +112,6 @@ export default function Editor() {
     e.target.value = "";
 
     setUploading(true);
-    setMsg("");
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -136,10 +134,9 @@ export default function Editor() {
       const next =
         content.slice(0, pos) + snippet + content.slice(pos) + "\n";
       setContent(next);
-      setMsg(`已插入 ${data.file} ✅`);
-      setTimeout(() => setMsg(""), 2500);
+      toast(`已插入 ${data.file}`, "success");
     } catch (err) {
-      setMsg(err.message);
+      toast(err.message, "error");
     } finally {
       setUploading(false);
     }
@@ -159,7 +156,7 @@ export default function Editor() {
 
   if (!authorized) {
     return (
-      <div className="w-screen h-screen bg-neutral-950 flex items-center justify-center text-neutral-400">
+      <div className="w-screen h-screen bg-paper flex items-center justify-center text-ink-faint">
         Checking login...
       </div>
     );
@@ -168,12 +165,12 @@ export default function Editor() {
   const basePath = `/Blogs/${encodeURIComponent(folder)}/`;
 
   return (
-    <div className="w-screen h-screen bg-neutral-950 text-white flex flex-col overflow-hidden">
+    <div className="w-screen h-screen bg-paper text-ink flex flex-col overflow-hidden">
       {/* ===== 顶栏 ===== */}
       <header
         className="
           shrink-0 flex items-center gap-3 px-4 py-3
-          bg-white/5 backdrop-blur-xl border-b border-white/10
+          bg-paper border-b border-line
         "
       >
         <button
@@ -181,29 +178,24 @@ export default function Editor() {
             if (dirty && !confirm("有未保存的修改，确定离开？")) return;
             navigate("/admin");
           }}
-          className="w-9 h-9 shrink-0 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition flex items-center justify-center text-neutral-300"
+          className="w-9 h-9 shrink-0 rounded-full border border-line hover:border-clay/50 transition flex items-center justify-center text-ink-soft hover:text-clay-dark"
         >
           ←
         </button>
 
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold truncate">{folder}</div>
-          <div className="text-[11px] text-neutral-500">
+          <div className="text-sm font-medium truncate">{folder}</div>
+          <div className="text-[11px] text-ink-faint">
             {dirty ? "● 未保存" : "已同步"}
           </div>
         </div>
-
-        {msg && (
-          <div className="text-xs text-neutral-300 shrink-0 hidden sm:block">
-            {msg}
-          </div>
-        )}
 
         {/* 上传配图 */}
         <label
           className={`
             shrink-0 px-3 py-2 rounded-full text-xs cursor-pointer
-            bg-white/10 border border-white/10 hover:bg-white/20 transition
+            border border-line hover:border-clay/50
+            text-ink-soft hover:text-clay-dark transition
             ${uploading ? "opacity-50 pointer-events-none" : ""}
           `}
         >
@@ -223,8 +215,8 @@ export default function Editor() {
             shrink-0 px-3 py-2 rounded-full text-xs transition
             ${
               previewMode
-                ? "bg-gradient-to-r from-purple-500 to-blue-500 text-white"
-                : "bg-white/10 border border-white/10 hover:bg-white/20 text-neutral-300"
+                ? "bg-ink text-paper"
+                : "border border-line hover:border-clay/50 text-ink-soft hover:text-clay-dark"
             }
           `}
         >
@@ -239,8 +231,8 @@ export default function Editor() {
             shrink-0 px-4 py-2 rounded-full text-xs font-semibold transition
             ${
               dirty
-                ? "bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:opacity-90"
-                : "bg-white/10 text-neutral-500 cursor-default"
+                ? "bg-ink text-paper hover:bg-clay-dark"
+                : "bg-paper-raised text-ink-faint cursor-default"
             }
             disabled:opacity-60
           `}
@@ -252,12 +244,12 @@ export default function Editor() {
       {/* ===== 编辑 / 预览 ===== */}
       <main className="flex-1 min-h-0 overflow-y-auto">
         {loading ? (
-          <div className="h-full flex items-center justify-center text-neutral-500 text-sm">
+          <div className="h-full flex items-center justify-center text-ink-faint text-sm">
             加载中...
           </div>
         ) : previewMode ? (
           <div className="max-w-[820px] mx-auto px-6 py-8">
-            <article className="prose prose-invert max-w-none">
+            <article className="prose max-w-none">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm, remarkMath]}
                 rehypePlugins={[rehypeHighlight, rehypeKatex]}
@@ -290,7 +282,7 @@ export default function Editor() {
             placeholder="# 标题&#10;&#10;正文内容（Markdown）..."
             className="
               w-full h-full resize-none outline-none
-              bg-neutral-950 text-neutral-200
+              bg-paper text-ink
               font-mono text-sm leading-relaxed
               p-6
             "

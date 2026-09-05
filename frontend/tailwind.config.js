@@ -7,6 +7,26 @@ module.exports = {
   ],
   theme: {
   	extend: {
+  		fontFamily: {
+  			display: [
+  				'"Source Serif 4 Variable"',
+  				'"Noto Serif SC Variable"',
+  				'Georgia',
+  				'"Songti SC"',
+  				'SimSun',
+  				'serif'
+  			]
+  		},
+  		colors: {
+  			paper: '#F0EEE6',
+  			'paper-raised': '#FAF9F5',
+  			ink: '#191919',
+  			'ink-soft': '#6B6862',
+  			'ink-faint': '#9C988F',
+  			line: '#E0DDD3',
+  			clay: '#D97757',
+  			'clay-dark': '#BD5D3F'
+  		},
   		borderRadius: {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',

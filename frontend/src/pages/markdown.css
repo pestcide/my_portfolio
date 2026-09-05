@@ -1,13 +1,37 @@
 /* ===============================
-   行内代码
+   Prose 配色（暖纸 + 墨 + Clay）
+=============================== */
+
+.prose {
+  --tw-prose-body: #3a3833;
+  --tw-prose-headings: #191919;
+  --tw-prose-lead: #55524d;
+  --tw-prose-links: #bd5d3f;
+  --tw-prose-bold: #191919;
+  --tw-prose-counters: #9c988f;
+  --tw-prose-bullets: #c4bfb1;
+  --tw-prose-hr: #e0ddd3;
+  --tw-prose-quotes: #55524d;
+  --tw-prose-quote-borders: #d97757;
+  --tw-prose-captions: #9c988f;
+  --tw-prose-code: #191919;
+  --tw-prose-pre-code: #191919;
+  --tw-prose-pre-bg: #faf9f5;
+  --tw-prose-th-borders: #e0ddd3;
+  --tw-prose-td-borders: #e0ddd3;
+}
+
+/* ===============================
+   行内代码（暖灰浅底）
 =============================== */
 
 .prose :not(pre) > code {
-  background: #171717;
-  padding: 0.2em 0.4em;
+  background: #eceae0;
+  border: 1px solid #e0ddd3;
+  padding: 0.15em 0.4em;
   border-radius: 6px;
   font-size: 0.9em;
-  color: #e5e7eb;
+  color: #191919;
 }
 
 .prose code::before,
@@ -16,19 +40,34 @@
 }
 
 /* ===============================
-   代码块
+   代码块（浅色，配 github.css 高亮主题）
 =============================== */
 
 .prose pre {
-  background: #171717;
+  background: #faf9f5;
+  border: 1px solid #e0ddd3;
   border-radius: 12px;
   padding: 16px;
   overflow-x: auto;
+  box-shadow: 0 2px 12px rgba(25, 25, 25, 0.04);
 }
 
 .prose pre code {
   background: transparent;
   padding: 0;
+}
+
+/* ===============================
+   引用 / 分隔线 / 表格
+=============================== */
+
+.prose blockquote {
+  font-style: normal;
+  font-weight: 400;
+}
+
+.prose table th {
+  color: #191919;
 }
 
 html {

@@ -561,6 +561,9 @@ def list_blogs():
                 "title": folder,
                 "folder_url": f"/Blogs/{folder}",
                 "md_url": f"/Blogs/{folder}/{md}",
+                "date": datetime.fromtimestamp(
+                    os.path.getmtime(md_path)
+                ).strftime("%Y-%m-%d"),
                 "mtime": os.path.getmtime(md_path),
             })
 
@@ -651,11 +654,12 @@ def _post_payload(folder):
 
     md = md_files[0]
     md_path = os.path.join(folder_path, md)
+    md_mtime = os.path.getmtime(md_path)
 
     # 摘要：正文第一个非标题/非代码/非图片的段落
     description = ""
     try:
-        with open(md_path, "r", encoding="utf-8", errors="ignore") as f:
+        with open(md_path, "r", encoding="utf-8-sig", errors="ignore") as f:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -672,7 +676,8 @@ def _post_payload(folder):
         "title": folder,
         "md_url": f"/Blogs/{folder}/{md}",
         "description": description,
-        "_mtime": os.path.getmtime(md_path),
+        "date": datetime.fromtimestamp(md_mtime).strftime("%Y-%m-%d"),
+        "_mtime": md_mtime,
     }
 
 
