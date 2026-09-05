@@ -5,7 +5,7 @@ import glob
 import json
 import re
 import uuid
-from auth import verify_token, create_token, USERNAME, PASSWORD
+from auth import verify_token, create_token, verify_user, change_password
 from fastapi import HTTPException, Depends, Form
 import shutil
 from fastapi import UploadFile, File
@@ -170,7 +170,7 @@ def login(data: dict):
     username = data.get("username")
     password = data.get("password")
 
-    if username != USERNAME or password != PASSWORD:
+    if not verify_user(username, password):
         raise HTTPException(status_code=401, detail="账号或密码错误")
 
     token = create_token(username)
@@ -178,6 +178,75 @@ def login(data: dict):
     return {
         "token": token,
         "token_type": "bearer"
+    }
+
+
+@app.post("/api/change-password")
+def update_password(data: dict, user: str = Depends(verify_token)):
+    old = data.get("old_password") or ""
+    new = data.get("new_password") or ""
+
+    if len(new) < 6:
+        raise HTTPException(400, "新密码至少 6 位")
+
+    try:
+        change_password(old, new)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+    return {"msg": "密码修改成功，请使用新密码重新登录"}
+
+
+# ==================== 头像 ====================
+
+AVATAR_PATH = os.path.join(PHOTO_DIR, "avatar.webp")
+
+
+@app.get("/api/avatar")
+def get_avatar():
+    """返回头像地址（带 mtime 参数做缓存穿透）；未上传时 url 为 null"""
+    if os.path.exists(AVATAR_PATH):
+        return {
+            "url": f"/Media/avatar.webp?t={int(os.path.getmtime(AVATAR_PATH))}"
+        }
+    return {"url": None}
+
+
+@app.post("/api/avatar")
+def update_avatar(
+    file: UploadFile = File(...),
+    user: str = Depends(verify_token)
+):
+    """上传头像：居中裁剪为正方形，400x400 WebP"""
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(400, "只能上传图片文件")
+
+    temp_path = os.path.join(PHOTO_DIR, "avatar_temp")
+    with open(temp_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    try:
+        with Image.open(temp_path) as img:
+            img = ImageOps.exif_transpose(img).convert("RGB")
+
+            # 居中裁剪为正方形
+            w, h = img.size
+            side = min(w, h)
+            left = (w - side) // 2
+            top = (h - side) // 2
+            img = img.crop((left, top, left + side, top + side))
+            img = img.resize((400, 400), Image.LANCZOS)
+
+            img.save(AVATAR_PATH, "WEBP", quality=85, method=6)
+    except Exception:
+        raise HTTPException(500, "头像处理失败")
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
+    return {
+        "msg": "头像上传成功",
+        "url": f"/Media/avatar.webp?t={int(os.path.getmtime(AVATAR_PATH))}",
     }
 
 @app.post("/api/upload")

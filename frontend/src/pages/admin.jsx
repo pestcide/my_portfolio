@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import BlogAdmin from "./BlogAdmin";
+import AccountAdmin from "./AccountAdmin";
 
 const UNCATEGORIZED_ID = "__uncategorized__";
 
@@ -695,6 +696,9 @@ export default function Admin() {
             </div>
           )}
         </section>
+
+        {/* ===== 账号设置（改密码 + 头像） ===== */}
+        <AccountAdmin />
       </div>
 
       {/* ===== 封面选择弹窗 ===== */}

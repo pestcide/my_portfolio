@@ -7,6 +7,7 @@ const ALL_ID = "__all__";
 
 export default function Blogs() {
   const [data, setData] = useState({ columns: [], posts: [] });
+  const [avatarUrl, setAvatarUrl] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -21,6 +22,11 @@ export default function Blogs() {
       .catch((err) => {
         console.error("加载博客失败:", err);
       });
+
+    fetch("/api/avatar")
+      .then((res) => res.json())
+      .then((d) => setAvatarUrl(d.url))
+      .catch(() => {});
   }, []);
 
   function setActive(id) {
@@ -60,7 +66,7 @@ export default function Blogs() {
                 <div className="flex justify-center mb-6">
                   <div className="w-32 h-32 rounded-full overflow-hidden border border-white/20">
                     <img
-                      src={myphoto}
+                      src={avatarUrl || myphoto}
                       alt="avatar"
                       className="w-full h-full object-cover"
                     />
